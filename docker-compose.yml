@@ -1,0 +1,23 @@
+services:
+  concourse:
+    image: concourse/concourse
+    container_name: concourse
+    environment:
+      CONCOURSE_BASIC_AUTH_USERNAME: test
+      CONCOURSE_BASIC_AUTH_PASSWORD: test
+    ports:
+      - "8080:8080"
+      - "2222:2222"
+    volumes:
+      - concourse-db:/concourse-db
+      - concourse-worker:/concourse-worker
+    command: ["web"]
+  concourse-worker:
+    image: concourse/concourse
+    container_name: concourse-worker
+    command: ["worker"]
+    volumes:
+      - concourse-worker:/concourse-worker
+volumes:
+  concourse-db:
+  concourse-worker:
