@@ -1,3 +1,5 @@
+version: '3'
+
 services:
   concourse:
     image: concourse/concourse
@@ -5,19 +7,69 @@ services:
     environment:
       CONCOURSE_BASIC_AUTH_USERNAME: test
       CONCOURSE_BASIC_AUTH_PASSWORD: test
+      CONCOURSE_MAIN_TEAM_LOCAL_USER: test
+      CONCOURSE_TSA_HOST_KEY: /etc/concourse/tsa-host-key
+      CONCOURSE_TSA_WORKER_KEY: /etc/concourse/tsa-worker-private-key
+      CONCOURSE_POSTGRES_HOST: postgres
+      CONCOURSE_POSTGRES_PORT: 5432
+      CONCOURSE_POSTGRES_USER: concourse
+      CONCOURSE_POSTGRES_PASSWORD: concourse_password
+      CONCOURSE_POSTGRES_DATABASE: concourse
     ports:
       - "8080:8080"
       - "2222:2222"
     volumes:
-      - concourse-db:/concourse-db
-      - concourse-worker:/concourse-worker
-    command: ["web"]
+      - ./tsa-host-key:/etc/concourse/tsa-host-key
+      - ./tsa-worker-private-key:/etc/concourse/tsa-worker-private-key
+    depends_on:
+      - postgres
+    command:
+      - "web"
+      - "--add-local-user"
+      - "test:test"
+    networks:
+      - concourse-net
+
   concourse-worker:
     image: concourse/concourse
     container_name: concourse-worker
-    command: ["worker"]
+    privileged: true  # Required to run garden/gdn
+    environment:
+      CONCOURSE_TSA_HOST_KEY: /etc/concourse/tsa-host-key
+      CONCOURSE_TSA_WORKER_KEY: /etc/concourse/tsa-worker-private-key
+      CONCOURSE_TSA_HOST: concourse
+      CONCOURSE_TSA_PORT: "2222"
     volumes:
-      - concourse-worker:/concourse-worker
+      - ./tsa-worker-private-key:/etc/concourse/tsa-worker-private-key
+      - ./tsa-host-key:/etc/concourse/tsa-host-key
+    command:
+      - "worker"
+      - "--tsa-host"
+      - "concourse"
+      - "--tsa-worker-private-key"
+      - "/etc/concourse/tsa-worker-private-key"
+    depends_on:
+      - concourse
+    networks:
+      - concourse-net
+
+  postgres:
+    image: postgres:12
+    container_name: concourse-postgres
+    environment:
+      POSTGRES_USER: concourse
+      POSTGRES_PASSWORD: concourse_password
+      POSTGRES_DB: concourse
+    ports:
+      - "5432:5432"
+    volumes:
+      - concourse_db_data:/var/lib/postgresql/data
+    networks:
+      - concourse-net
+
 volumes:
-  concourse-db:
-  concourse-worker:
+  concourse_db_data:
+
+networks:
+  concourse-net:
+    driver: bridge
